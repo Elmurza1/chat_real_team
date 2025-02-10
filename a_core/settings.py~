@@ -45,9 +45,9 @@ INSTALLED_APPS = [
     'allauth.account',
     'django_htmx',
 
+    # My apps
     'a_home',
     'a_users',
-    'rt_chat',
 ]
 
 SITE_ID = 1
