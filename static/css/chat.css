@@ -1,0 +1,44 @@
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+}
+
+.message {
+    max-width: 60%;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+.sender {
+    align-self: flex-end;
+    background-color: white;
+    color: black;
+    text-align: right;
+}
+
+.receiver {
+    align-self: flex-start;
+    background-color: lightgreen;
+    color: black;
+    text-align: left;
+}
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+    max-width: 800px; /* Ограничивает ширину чата */
+    margin: auto; /* Центрирует блок */
+}
+.message {
+    max-width: 60%;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 16px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
