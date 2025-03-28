@@ -1,70 +1,76 @@
-// Функция для переподключения WebSocket
 let socket;
-function connectWebSocket() {
-    socket = new WebSocket("ws://127.0.0.1:8000/ws/chat/");
 
-    // Элементы DOM
+function connectWebSocket() {
+    if (socket) {
+        socket.close();
+    }
+
     const chatMessages = document.getElementById("chat_messages");
     const chatForm = document.getElementById("chat_message_form");
     const chatInput = chatForm.querySelector("input[name='content']");
 
-    // При успешном подключении к WebSocket
-    socket.onopen = function () {
-        console.log("WebSocket соединение открыто.");
-    };
+    // Получаем ID собеседника из URL (можно передавать через шаблон Django)
+    console.log("🔍 Receiver ID:", receiverId);
+    console.log(`🔗 WebSocket URL: ws://${window.location.host}/ws/chat/${receiverId}/`);
 
-    // При закрытии WebSocket-соединения
-    socket.onclose = function () {
-        console.log("WebSocket соединение закрыто.");
-        // Попробуем переподключиться через 5 секунд
-        setTimeout(connectWebSocket, 5000);
-    };
-
-    // Функция для отправки сообщения
-    function sendMessage(message) {
-        if (socket.readyState === WebSocket.OPEN) {  // Проверка, что WebSocket открыт
-            socket.send(JSON.stringify({"message": message}));
-            addMessageToChat("Вы", message);  // Добавляем сообщение как "Вы"
-            chatInput.value = "";  // Очищаем поле ввода
-        } else {
-            console.log("WebSocket не открыт или уже закрыт.");
-        }
+    // Проверяем, что receiverId не пустой
+    if (!receiverId) {
+        console.error("❌ Ошибка: receiverId пустой! Проверь URL.");
+        return; // Останавливаем выполнение функции
     }
 
-    // Получение сообщения от сервера
+    // Создаём WebSocket соединение с user_id
+    socket = new WebSocket(`ws://${window.location.host}/ws/chat/${receiverId}/`);
+
+    socket.onopen = function () {
+        console.log("✅ WebSocket соединение установлено.");
+    };
+
+    socket.onclose = function (event) {
+        console.warn(`⚠️ WebSocket закрыт (код ${event.code}, причина: ${event.reason})`);
+        socket = null;
+
+        // Если соединение закрыто по ошибке (не код 1000), пытаемся переподключиться
+        if (event.code !== 1000) {
+            console.log("🔄 Переподключение через 5 секунд...");
+            setTimeout(connectWebSocket, 5000);
+        }
+    };
+
+    socket.onerror = function (error) {
+        console.error("❌ Ошибка WebSocket:", error);
+    };
+
     socket.onmessage = function (event) {
         const data = JSON.parse(event.data);
-        console.log("Сообщение от сервера:", data);
+        console.log("📩 Получено сообщение от сервера:", data);
 
-        if (data.message && !isDuplicateMessage(data.message)) {
-            addMessageToChat("Собеседник", data.message);  // Добавляем сообщение от собеседника
+        if (data.message) {
+            addMessageToChat(data.sender, data.message);
         }
     };
 
-    // Функция для проверки, дублируется ли сообщение
-    function isDuplicateMessage(message) {
-        const messages = chatMessages.querySelectorAll("li .message");
-        for (let msg of messages) {
-            if (msg.innerText.includes(message)) {
-                return true;  // Сообщение найдено, оно дублируется
-            }
+    function sendMessage(message) {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            console.log("❌ WebSocket соединение закрыто. Сообщение не отправлено.");
+            return;
         }
-        return false;
+
+        socket.send(JSON.stringify({ "message": message }));
+        addMessageToChat("Вы", message);
+        chatInput.value = "";
     }
 
-    // Обработчик отправки сообщения через форму
     chatForm.addEventListener("submit", function (event) {
-        event.preventDefault();  // Отмена стандартного отправления формы
-
+        event.preventDefault();
         const message = chatInput.value.trim();
         if (message.length > 0) {
-            sendMessage(message);  // Отправка сообщения через WebSocket
+            sendMessage(message);
         }
     });
 
-    // Функция добавления нового сообщения в чат
     function addMessageToChat(sender, message) {
-        let messageElement = document.createElement("li");
+        const messageElement = document.createElement("li");
         messageElement.classList.add("flex", "justify-end", "mb-4");
 
         messageElement.innerHTML = `
@@ -74,14 +80,11 @@ function connectWebSocket() {
         `;
 
         chatMessages.appendChild(messageElement);
-
-        // Проверка, внизу ли чат, перед автоскроллом
-        const isAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop === chatMessages.clientHeight;
-        if (isAtBottom) {
-            chatMessages.scrollTop = chatMessages.scrollHeight;  // Автоскроллинг вниз
-        }
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 }
 
-// Запуск соединения WebSocket при загрузке страницы
-connectWebSocket();
+// Запускаем WebSocket при загрузке страницы
+window.onload = () => {
+    connectWebSocket();
+};

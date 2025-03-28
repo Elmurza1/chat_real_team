@@ -9,7 +9,7 @@ from .models import Message
 @login_required
 def home_view(request):
     """ вюшка главной страницы """
-    user = User.objects.all()
+    user = User.objects.exclude(id=request.user.id)
     return render(request, 'home.html', {'users':user} )
 
 def chat_view(request, user_id):
@@ -25,11 +25,5 @@ def chat_view(request, user_id):
     ).order_by('timestamp')
 
 
-    if request.method == 'POST':
-        content = request.POST.get('content')
-
-        if content:
-            Message.objects.create(sender=request.user, receiver=receiver, content=content)
-        return redirect('chat', user_id=user_id)
     return render(request, 'chat.html', {'receiver':receiver, 'messages':messages})
 
