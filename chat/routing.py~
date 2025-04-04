@@ -1,0 +1,12 @@
+from django.urls import re_path
+from chat.routing import websocket_urlpatterns as chat_ws
+from notifications.routing import websocket_urlpatterns as notifications_ws
+
+websocket_urlpatterns = chat_ws + notifications_ws  # Объединяем маршруты чата и уведомлений
+
+
+
+
+websocket_urlpatterns = [
+    re_path(r"ws/chat/(?P<user_id>\d+)/$", ChatConsumer.as_asgi()),
+]

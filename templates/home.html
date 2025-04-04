@@ -12,6 +12,8 @@
                 <li class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-700">
                     <img class="w-8 h-8 rounded-full object-cover" src="https://via.placeholder.com/40" alt="User Avatar">
                     <p><a href="{% url 'chat' user.id %}">{{ user.username }}</a></p>
+                    <span id="unread_messages_badge" class="badge">0</span>
+
                 </li>
             {% endfor %}
         </ul>

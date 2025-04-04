@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'channels',
     'a_home',
     'a_users',
-    'rt_chat',
+    'chat',
+    'notifications',
 ]
 
 SITE_ID = 1
