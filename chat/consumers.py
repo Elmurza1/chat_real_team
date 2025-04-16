@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from .models import Message
 from channels.layers import get_channel_layer
 import redis
+from django_redis import get_redis_connection
+
 
 User = get_user_model()
 redis_client = redis.Redis(host='localhost', port=6379, db=0)  # Подключение к Redis
@@ -32,20 +34,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
-        # 🔥 Обнуляем счётчик непрочитанных сообщений в Redis
-        unread_key = f"unread_{self.user.id}"
-        redis_client.set(unread_key, 0)
-
-        # 🔥 Отправляем обновлённый счётчик уведомлений пользователю
-        await self.channel_layer.group_send(
-            f"user_{self.user.id}",
-            {
-                "type": "new_message_notification",
-                "sender": "",
-                "message": "",
-                "unread_count": 0,
-            }
-        )
+        # Обнуляем счётчик непрочитанных сообщений в Redis
+        await self.reset_unread_count(self.receiver_id)
 
     async def disconnect(self, close_code):
         """Отключение от сокета"""
@@ -59,6 +49,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         """Получение сообщений"""
         data = json.loads(text_data)
+        print("📥 Получено сообщение:", text_data)  # Добавь лог
+
         message_content = data['message']
         sender = self.user
         receiver = await self.get_receiver(self.receiver_id)
@@ -76,30 +68,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        # ✅ Уведомление о новом сообщении
+        # Уведомление о новом сообщении
         await self.send_notification(receiver, sender.username, message_content)
 
     async def chat_message(self, event):
         """Отправка сообщений"""
+        print("📤 Отправка клиенту:", event)  # <== добавь это
+
         await self.send(text_data=json.dumps({
             "message": event["message"],
             "sender": event["sender"],
         }))
 
     async def send_notification(self, receiver, sender_name, message):
-        """Отправка WebSocket-уведомления + обновление счётчика непрочитанных сообщений"""
-        unread_key = f"unread_{receiver.id}"
-        redis_client.incr(unread_key)  # Увеличиваем счётчик непрочитанных
+        """Уведомление через WebSocket + обновление счётчика"""
+        redis_client = get_redis_connection("default")
 
-        await channel_layer.group_send(
-            f"user_{receiver.id}",
+        sender_id = self.scope["user"].id
+        receiver_id = receiver.id
+
+        unread_key = f"unread_{receiver_id}_{sender_id}"
+        redis_client.incr(unread_key)
+
+        await  self.chennel_lyer.group_send(
+            f"user_{receiver_id}",
             {
-                "type": "new_message_notification",
-                "sender": sender_name,
-                "message": message,
-                "unread_count": int(redis_client.get(unread_key)),
+                "type": "notify",
+                "sender": sender_id,
+                "count": int(redis_client.get(unread_key) or 0)
             }
         )
+
+    async def notify_unread(self, event):
+        """Отправка обновлённого счётчика на фронт"""
+        await self.send(text_data=json.dumps({
+            "type": "unread_count",
+            "sender_id": event["sender_id"],
+            "count": event["count"]
+        }))
 
     @database_sync_to_async
     def get_receiver(self, user_id):
@@ -107,4 +113,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_message(self, sender, receiver, content):
-        return Message.objects.create(sender=sender, receiver=receiver, content=content)
+        return Message.objects.create(sender=sender, receiver=receiver, content=content, is_read=False)
+
+    @database_sync_to_async
+    def reset_unread_count(self, other_user_id):
+        """Обнуляем счётчик непрочитанных сообщений только от одного пользователя"""
+        redis_client = get_redis_connection("default")
+        key = f"unread:{self.user.id}:{other_user_id}"
+        redis_client.set(key, 0)
+

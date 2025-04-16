@@ -1,14 +1,13 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.contrib.auth.models import User
-from chat.models import Message
 import redis
 
 redis_client = redis.Redis(host='localhost', port=6379, db=0)
 
 class NotificationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        """ подключение к websocket """
+        """Подключение к WebSocket"""
         self.user = self.scope['user']
 
         if self.user.is_authenticated:
@@ -20,23 +19,23 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             await self.close()
 
     async def disconnect(self, close_code):
-        """ отключение websocket """
+        """Отключение от WebSocket"""
         if self.user.is_authenticated:
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):
-        """ получение сообщений """
+        """Обработка клиентских запросов"""
         data = json.loads(text_data)
-        action = data['action']
+        action = data.get('action')
 
         if action == 'get_unread_count':
-            unread_count = int(redis_client.get(f"unread_count_{self.user.id}") or 0)
+            unread_count = int(redis_client.get(f"unread_{self.user.id}") or 0)
             await self.send(text_data=json.dumps({'unread_count': unread_count}))
 
     async def new_message_notification(self, event):
-        """ отправка уведомления о новом сообщении """
+        """Отправка уведомлений"""
         await self.send(text_data=json.dumps({
-            'type': 'new_message_notification',
+            'type': 'new_message',
             'message': event['message'],
             'sender': event['sender'],
             'unread_count': event['unread_count'],

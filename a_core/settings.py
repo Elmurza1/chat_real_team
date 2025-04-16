@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'django_htmx',
     'channels',
+    'channels_redis',
     'a_home',
     'a_users',
     'chat',

@@ -7,6 +7,7 @@ class Message(models.Model):
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_massages')
     content = models.TextField(null=True)
     timestamp = models.DateTimeField(auto_now_add=True, null=True)
+    is_read = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver} at {self.timestamp}"

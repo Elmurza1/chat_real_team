@@ -45,6 +45,14 @@ function connectWebSocket() {
         const data = JSON.parse(event.data);
         console.log("📩 Получено сообщение от сервера:", data);
 
+        // 📦 Обработка непрочитанных сообщений от конкретного пользователя
+        // 📦 Обработка непрочитанных сообщений от конкретного пользователя
+        if (data.type === "unread_count") {
+            updateUnreadBadge(data.sender_id, data.count); // Обновим бейдж
+        }
+
+
+
         if (data.message) {
             addMessageToChat(data.sender, data.message);
         }
@@ -69,6 +77,16 @@ function connectWebSocket() {
         }
     });
 
+    // 📌 Обновляем счетчик рядом с именем юзера
+    function updateUnreadBadge(senderId, count) {
+        const badge = document.getElementById(`badge-${senderId}`);
+        if (badge) {
+            badge.innerText = count;
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+    }
+
+
     function addMessageToChat(sender, message) {
         const messageElement = document.createElement("li");
         messageElement.classList.add("flex", "justify-end", "mb-4");
@@ -83,6 +101,30 @@ function connectWebSocket() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 }
+
+function loadUnreadCounts() {
+    fetch('/get-unread-counts/')
+        .then(response => response.json())
+        .then(data => {
+            for (let user in data) {
+                const badge = document.getElementById(`badge-${user}`);
+                if (badge) {
+                    badge.innerText = data[user];
+                    badge.style.display = data[user] > 0 ? 'inline-block' : 'none';
+                }
+            }
+        });
+}
+
+// вызывать при загрузке
+loadUnreadCounts();
+
+// вызывать при открытии чата
+function markMessagesAsRead(username) {
+    fetch(`/mark-as-read/${username}/`)
+        .then(() => loadUnreadCounts());
+}
+
 
 // Запускаем WebSocket при загрузке страницы
 window.onload = () => {
